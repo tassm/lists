@@ -1,17 +1,40 @@
-const loadHtml = async (path) => {
+const loadAndCacheHtmlFile = async (path) => {
   const response = await fetch(path);
-  const text = await response.text();
-  return text;
+  const html = await response.text();
+  const parser = new DOMParser();
+  return parser.parseFromString(html, 'text/html')
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
   var content = document.getElementById('content');
 
   // load the list content
-  var listPage = await loadHtml("list.html")
+  var listDom = await loadAndCacheHtmlFile('list.html');
   var content = document.getElementById('content');
-  content.innerHTML = listPage;
+  content.innerHTML = listDom.getElementById('list-container').outerHTML;
 
+  // load the dummy data file
+  const listData = [
+    {
+        "item": "milk",
+        "done": false
+    },
+    {
+        "item": "bread",
+        "done": false
+    },
+    {
+        "item": "servo pie",
+        "done": false
+    }
+]
+
+  listData.forEach(element => {
+    console.log(element['item'])
+    var listCard = listDom.getElementById('list-item');
+    listCard.getElementById("item").innerText = element['item'];
+    document.getElementById('list-container').appendChild(listCard)
+  });
   // navBar.addEventListener('click', (event) => {
   // // Prevent the default link behavior
   // event.preventDefault();
