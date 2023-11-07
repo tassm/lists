@@ -5,13 +5,17 @@ const loadAndCacheHtmlFile = async (path) => {
   return parser.parseFromString(html, 'text/html')
 }
 
+const saveChanges = () => {
+  console.log("hi")
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   var content = document.getElementById('content');
 
   // load the list content
   var listDom = await loadAndCacheHtmlFile('list.html');
   var content = document.getElementById('content');
-  content.innerHTML = listDom.getElementById('list-container').outerHTML;
+  content.innerHTML = listDom.getElementById('list-template').innerHTML;
 
   // load the dummy data file
   const listData = [
@@ -26,15 +30,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     {
         "item": "servo pie",
         "done": false
+    },
+    {
+      "item": "even more pie",
+      "done": false
+    },
+    {
+      "item": "a 3 legged dog",
+      "done": false
     }
 ]
 
+  var listTemplate = listDom.getElementById("list-item-template");
   listData.forEach(element => {
-    console.log(element['item'])
-    var listCard = listDom.getElementById('list-item');
-    listCard.getElementById("item").innerText = element['item'];
-    document.getElementById('list-container').appendChild(listCard)
+    console.log(element.item)
+    listTemplate.content.querySelector("span").innerText = element.item
+    var node = document.importNode(listTemplate.content.querySelector("div"), true)
+    document.getElementById('list-container').appendChild(node)
   });
+
+  
+
   // navBar.addEventListener('click', (event) => {
   // // Prevent the default link behavior
   // event.preventDefault();
