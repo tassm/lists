@@ -17,7 +17,7 @@ const hideErrorPopup = () => {
   document.getElementById('error-modal').classList.add('hidden');
 }
 
-const postItem = async (item) => {
+const postItem = async (item, list) => {
   // Create a new Fetch request object.
   const request = new Request(fullPath, {
     method: 'POST',
@@ -26,6 +26,7 @@ const postItem = async (item) => {
     },
     body: JSON.stringify({
       item: item,
+      listId: list
     }),
   });
 
@@ -78,7 +79,7 @@ const newItem = () => {
 
 const saveNew = async () => {
   var itemText = document.getElementById('new-item-text').value
-  var res = await postItem(itemText)
+  var res = await postItem(itemText, "test-list")
   // CHECK IF IT IS A 201 CREATED
 
 
