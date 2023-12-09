@@ -86,9 +86,8 @@ func (s *DynamoListItemService) UpdateListItem(ctx context.Context, listItem *Li
 			"ID":     &types.AttributeValueMemberS{Value: listItem.ID},
 			"ListID": &types.AttributeValueMemberS{Value: listItem.ListID},
 		},
-		UpdateExpression: aws.String("SET Item = :item, Done = :done, UpdatedAt = :updatedAt"),
+		UpdateExpression: aws.String("SET Done = :done, UpdatedAt = :updatedAt"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":item":      &types.AttributeValueMemberS{Value: listItem.Item},
 			":done":      &types.AttributeValueMemberBOOL{Value: listItem.Done},
 			":updatedAt": &types.AttributeValueMemberS{Value: listItem.UpdatedAt.Format(time.RFC3339)},
 		},

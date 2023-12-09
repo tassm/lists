@@ -16,24 +16,29 @@ import (
 
 const (
 	dynamoTableName = "list_items"
+
+	// base URL path for list entities
+	basePath = "/api/v1/list/"
 )
 
 func main() {
 	// setup and connect to aws
 	config, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		log.Panicf("failed to load aws configration!")
+		log.Panicf("failed to load AWS configration!")
 	}
 	client := dynamodb.NewFromConfig(config) //dynamodb.(dynamodb.Options{}, nil)
 	itemListService := data.NewDynamoListService(client, dynamoTableName)
 
-	http.HandleFunc("/api/list", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(basePath, func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		listId := path[len(basePath):]
 		switch r.Method {
 		case http.MethodGet:
 			// GET /list
 			// Respond with a list of all items in the list
 			w.Header().Set("Content-Type", "application/json")
-			if res, err := itemListService.GetListItems(r.Context(), "test-list"); err == nil {
+			if res, err := itemListService.GetListItems(r.Context(), listId); err == nil {
 				if json, err := json.Marshal(res); err == nil {
 					w.Write(json)
 					return
@@ -68,8 +73,26 @@ func main() {
 			}
 			w.WriteHeader(http.StatusCreated)
 		case http.MethodPut:
-			// PUT /list
-			// mark multiple items as completed
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			var items []data.ListItem
+			err = json.Unmarshal(body, &items)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			// TODO: make this transactional
+			for _, item := range items {
+				err := itemListService.UpdateListItem(r.Context(), &item)
+				if err != nil {
+					log.Printf("failed to update item: %s", err.Error())
+					http.Error(w, "failed to update item", http.StatusInternalServerError)
+					return
+				}
+			}
 			w.WriteHeader(http.StatusNoContent)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
