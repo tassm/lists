@@ -3,11 +3,11 @@ var basePath;
 var resetStyle;
 var fullPath;
 
-const endpoint = '/api/list';
+const endpoint = '/api/v1/list/';
 
-const showErrorPopup = (errorMessage) => {
+const showErrorPopup = (errorMessage, statusCode) => {
   // Set the error message.
-  document.getElementById('error-message').innerHTML = errorMessage;
+  document.getElementById('error-message').innerHTML = `${errorMessage} HTTP: ${statusCode}`;
   // Display the error popup.
   document.getElementById('error-modal').classList.remove('hidden');
 }
@@ -17,7 +17,7 @@ const hideErrorPopup = () => {
   document.getElementById('error-modal').classList.add('hidden');
 }
 
-const postItem = async (item) => {
+const postItem = async (item, list) => {
   // Create a new Fetch request object.
   const request = new Request(fullPath, {
     method: 'POST',
@@ -26,24 +26,23 @@ const postItem = async (item) => {
     },
     body: JSON.stringify({
       item: item,
+      listId: list
     }),
   });
 
   // Send the request and await the response.
-  const response = await fetch(request);
+  return await fetch(request);
 }
 
-// provide a list of item ids to update to done
-const putCompletedItems = async (idList) => {
+// provide a list of items which are updated to done
+const putCompletedItems = async (itemList, list) => {
   // Create a new Fetch request object.
   const request = new Request(fullPath, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      ids: idList,
-    }),
+    body: JSON.stringify(itemList),
   });
 
   // Send the request and await the response.
@@ -76,11 +75,19 @@ const newItem = () => {
   }
 }
 
-const saveNew = async () => {
+const saveNew = async (listId) => {
+  // take the listId from the query path if not supplied?
+  if (listId == null) {
+    var url = new URL(window.location.href)
+    listId = url.searchParams.get("listId")
+  }
   var itemText = document.getElementById('new-item-text').value
-  var res = await postItem(itemText)
+  var res = await postItem(itemText, listId)
   // CHECK IF IT IS A 201 CREATED
-
+  if (res.status != 201) {
+    showErrorPopup(`list with ID '${listId}' could not be retrieved`, res.status)
+    return
+  }
 
   var container = document.getElementById('list-container')
   container.children[1].remove()
@@ -91,22 +98,30 @@ const saveNew = async () => {
   container.insertBefore(node, container.children[1])
 }
 
-const saveChanges = async () => {
+const saveChanges = async (listId) => {
+  //TODO: remove this duplication, should be more elegant
+  if (listId == null) {
+    var url = new URL(window.location.href)
+    listId = url.searchParams.get("listId")
+  }
   const elements = document.querySelectorAll('input[type="checkbox"]');
-  const completedIds = [];
-
+  const completedItems = [];
   elements.forEach(element => {
     if (element.type === 'checkbox' && element.checked) {
-      completedIds.push(element.id);
+      completedItems.push({
+        id: element.id,
+        listId: listId,
+        done: true
+      });
     }
   });
 
-  var res = await putCompletedItems(completedIds)
+  var res = await putCompletedItems(completedItems, listId)
   if (res.status != 204) {
-    showErrorPopup('failed to save changes, try again!')
+    showErrorPopup('failed to save changes, try again!', res.status)
   }
 
-  await reloadList();
+  await loadList(listId);
 }
 
 const registerSearchField = (searchField) => {
@@ -129,13 +144,21 @@ const registerSearchField = (searchField) => {
   });
 }
 
-const reloadList = async () => {
+const loadList = async (listId) => {
+  if (listId == null) {
+    var listId = document.getElementById("list-id-input").value;
+  }
+  history.pushState(null, null, window.location.pathname + "?listId=" + encodeURIComponent(listId));
+  var res = await fetch(fullPath + listId);
+  var listJson = await res.json()
+
+  if (res.status != 200 || listJson == null) {
+    showErrorPopup(`list with ID '${listId}' could not be retrieved`, res.status);
+    return
+  }
+
   var content = document.getElementById('content');
   content.innerHTML = listDom.getElementById('list-template').innerHTML;
-
-  var listData = await fetch(fullPath);
-  var listJson = await listData.json()
-
   var listTemplate = listDom.getElementById("list-item-template");
   listJson.forEach(element => {
     if (!element.done) {
@@ -145,22 +168,25 @@ const reloadList = async () => {
       document.getElementById('list-container').appendChild(node)
     }
   });
+  registerSearchField(document.getElementById('search-box'));
 }
 
 // main entrypoint
 
 document.addEventListener('DOMContentLoaded', async () => {
-  var content = document.getElementById('content');
-
   // get the base path
+  var url = new URL(window.location.href)
   if (basePath == null) {
-    basePath = new URL(window.location.href).origin;
+    basePath = url.origin;
     fullPath = basePath + endpoint;
   }
 
   // load the list content
   listDom = await loadAndCacheHtmlFile('list.html');
-  await reloadList();
 
-  registerSearchField(document.getElementById('search-box'));
+  // load the list if specified in the query param
+  var listId = url.searchParams.get("listId")
+  if (listId != null) {
+    loadList(listId)
+  }
 });
