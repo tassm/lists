@@ -148,7 +148,7 @@ const loadList = async (listId) => {
   if (listId == null) {
     var listId = document.getElementById("list-id-input").value;
   }
-  history.pushState(null, null, window.location.pathname + "?listId=" + encodeURIComponent(listId));
+  history.pushState(null, null, "/list/" + encodeURIComponent(listId));
   var res = await fetch(fullPath + listId);
   if (res.status != 200) {
     showErrorPopup(`list with ID '${listId}' could not be retrieved`, res.status);
@@ -184,8 +184,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   listDom = await loadAndCacheHtmlFile('list.html');
 
   // load the list if specified in the query param
-  var listId = url.searchParams.get("listId")
-  if (listId != null) {
-    loadList(listId)
+  //var listId = url.searchParams.get("listId")
+  if (url.pathname.includes("/list/")) {
+    var listId = url.pathname.split("/list/").pop()
+    if (listId != null && listId.length > 0) {
+      loadList(listId)
+    }
   }
 });

@@ -8,18 +8,15 @@ SHELL := /bin/bash
 
 all: clean test build
 
-# serve http content
-serve-web:
-	http-server web/
-
 # Build the project
 build:
+	mkdir -p bin
 	go build -o ./bin/lists-server/main cmd/lists-server/main.go
 	go build -o ./bin/lists-lambda/main cmd/lists-lambda/main.go
 
 # Run the project
 run: build
-	./bin/main
+	./bin/lists-server/main
 
 # Test the project
 test:
