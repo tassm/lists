@@ -7,6 +7,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/tassm/lists/internal/data"
@@ -14,9 +15,11 @@ import (
 
 func HandlerMux(itemSvc *data.DynamoListItemService, basePath string) *http.ServeMux {
 	mux := http.NewServeMux()
+
 	mux.HandleFunc(basePath, func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		listId := path[len(basePath):]
+
 		switch r.Method {
 		case http.MethodGet:
 			// validate the list exists
@@ -123,12 +126,27 @@ func HandlerMux(itemSvc *data.DynamoListItemService, basePath string) *http.Serv
 		}
 	})
 
-	serverRoot, err := fs.Sub(data.WebFs, "web")
+	webRoot, err := fs.Sub(data.WebFs, "web")
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	fileHandler := pathRewriter(http.FileServer(http.FS(webRoot)), webRoot)
+
 	// Serve a folder of web content at the root path from the embedded fs /
-	mux.Handle("/", http.FileServer(http.FS(serverRoot)))
+	mux.Handle("/list/", http.StripPrefix("/list/", fileHandler))
+	mux.Handle("/", http.RedirectHandler("/list/", http.StatusPermanentRedirect))
 	return mux
+}
+
+// rewrite path if not a valid file
+func pathRewriter(incoming http.Handler, webRoot fs.FS) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "" {
+			if _, err := fs.Stat(webRoot, filepath.Join(r.URL.Path)); err != nil {
+				r.URL.Path = ""
+			}
+		}
+		incoming.ServeHTTP(w, r)
+	})
 }
