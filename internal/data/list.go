@@ -2,7 +2,9 @@ package data
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -11,26 +13,48 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-type ListItemService interface {
-	GetItemsOfList(listId string) ([]*ListItem, error)
-	CreateItem(item *ListItem) error
-	UpdateItem(item *ListItem) error
-}
-
 type DynamoListItemService struct {
-	client    *dynamodb.Client
-	tableName string
+	client        *dynamodb.Client
+	listItemTable string
+	listTable     string
 }
 
-func NewDynamoListService(client *dynamodb.Client, tableName string) *DynamoListItemService {
-	return &DynamoListItemService{client: client, tableName: tableName}
+func NewDynamoListService(client *dynamodb.Client, listItemTable string, listTable string) *DynamoListItemService {
+	return &DynamoListItemService{client: client, listItemTable: listItemTable, listTable: listTable}
+}
+
+func (s *DynamoListItemService) IsValidList(ctx context.Context, listId string) error {
+	keyEx := expression.Key("ListID").Equal(expression.Value(listId))
+	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
+	if err != nil {
+		log.Printf("Couldn't build expression for query. Here's why: %v\n", err)
+		return err
+	}
+	input := &dynamodb.QueryInput{
+		TableName:                 aws.String(s.listTable),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		KeyConditionExpression:    expr.KeyCondition(),
+	}
+	result, err := s.client.Query(ctx, input)
+	if err != nil {
+		return err
+	}
+	if result.Count != 1 {
+		return errors.New("list does not exist: " + listId)
+	}
+	return nil
 }
 
 func (s *DynamoListItemService) GetListItems(ctx context.Context, listID string) ([]ListItem, error) {
 	filtEx := expression.Name("ListID").Equal(expression.Value(listID))
-	expr, _ := expression.NewBuilder().WithFilter(filtEx).Build()
+	expr, err := expression.NewBuilder().WithFilter(filtEx).Build()
+	if err != nil {
+		log.Printf("Couldn't build expression for query. Here's why: %v\n", err)
+		return nil, err
+	}
 	input := &dynamodb.ScanInput{
-		TableName:                 aws.String(s.tableName),
+		TableName:                 aws.String(s.listItemTable),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		FilterExpression:          expr.Filter(),
@@ -65,7 +89,7 @@ func (s *DynamoListItemService) CreateListItem(ctx context.Context, listItem *Li
 	}
 
 	input := &dynamodb.PutItemInput{
-		TableName: aws.String(s.tableName),
+		TableName: aws.String(s.listItemTable),
 		Item:      marshaledItem,
 	}
 
@@ -81,7 +105,7 @@ func (s *DynamoListItemService) UpdateListItem(ctx context.Context, listItem *Li
 	listItem.UpdatedAt = time.Now()
 
 	input := &dynamodb.UpdateItemInput{
-		TableName: aws.String(s.tableName),
+		TableName: aws.String(s.listItemTable),
 		Key: map[string]types.AttributeValue{
 			"ID":     &types.AttributeValueMemberS{Value: listItem.ID},
 			"ListID": &types.AttributeValueMemberS{Value: listItem.ListID},

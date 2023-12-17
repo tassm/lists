@@ -56,7 +56,7 @@ func unmarshalListItem(item map[string]types.AttributeValue) (ListItem, error) {
 		return ListItem{}, errors.New("missing CreatedAt attribute")
 	}
 
-	parsedCreatedAt, err := time.Parse(time.RFC3339, *&createdAt.Value)
+	parsedCreatedAt, err := time.Parse(time.RFC3339, createdAt.Value)
 	if err != nil {
 		return ListItem{}, fmt.Errorf("failed to parse CreatedAt: %w", err)
 	}
@@ -66,7 +66,7 @@ func unmarshalListItem(item map[string]types.AttributeValue) (ListItem, error) {
 		return ListItem{}, errors.New("missing UpdatedAt attribute")
 	}
 
-	parsedUpdatedAt, err := time.Parse(time.RFC3339, *&updatedAt.Value)
+	parsedUpdatedAt, err := time.Parse(time.RFC3339, updatedAt.Value)
 	if err != nil {
 		return ListItem{}, fmt.Errorf("failed to parse UpdatedAt: %w", err)
 	}
